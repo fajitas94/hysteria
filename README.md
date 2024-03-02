@@ -1,3 +1,3 @@
-# Asteria.RIP
+# hysteria
 
-### Open source MC client
+### open source client for personal use
