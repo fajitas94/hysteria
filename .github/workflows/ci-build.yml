@@ -1,0 +1,78 @@
+name: CI Build (multi-platform)
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Validate Gradle wrapper
+        uses: gradle/wrapper-validation-action@v1
+
+      - name: Make gradlew executable (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: chmod +x ./gradlew
+
+      - name: Stop any gradle daemon (safe)
+        run: |
+          ./gradlew --stop
+        shell: bash
+        if: matrix.os == 'ubuntu-latest'
+
+      - name: Stop any gradle daemon (Windows)
+        run: .\\gradlew.bat --stop
+        shell: pwsh
+        if: matrix.os == 'windows-latest'
+
+      - name: Clear Loom cache (project-local)
+        run: |
+          echo "Removing .gradle/loom-cache if present"
+          if [ -d ".gradle/loom-cache" ]; then rm -rf .gradle/loom-cache; fi
+        shell: bash
+        if: matrix.os == 'ubuntu-latest'
+
+      - name: Clear Loom cache (project-local) - Windows
+        run: |
+          if (Test-Path '.gradle\\loom-cache') { Remove-Item -Recurse -Force '.gradle\\loom-cache' }
+        shell: pwsh
+        if: matrix.os == 'windows-latest'
+
+      - name: Build (Gradle wrapper) - Linux
+        run: |
+          ./gradlew build --no-daemon --warning-mode all --info
+        shell: bash
+        if: matrix.os == 'ubuntu-latest'
+
+      - name: Build (Gradle wrapper) - Windows
+        run: |
+          .\\gradlew.bat build --no-daemon --warning-mode all --info
+        shell: pwsh
+        if: matrix.os == 'windows-latest'
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mod-jars-${{ matrix.os }}
+          path: |
+            shared/build/libs/*.jar
+            1.19.4/build/libs/*.jar
+            1.20.1/build/libs/*.jar
+            1.20.2/build/libs/*.jar
