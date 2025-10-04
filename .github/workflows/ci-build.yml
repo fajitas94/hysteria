@@ -1,0 +1,57 @@
+name: Build mod jars (CI)
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build (Ubuntu + Windows matrix)
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/gradle-wrapper.properties') }}-${{ hashFiles('**/*.gradle*') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Show java & gradle info
+        run: |
+          java -version
+          ./gradlew -v
+        shell: bash
+
+      - name: Build (Gradle wrapper)
+        run: |
+          # Use the wrapper (will download Gradle if needed)
+          ./gradlew build --no-daemon --warning-mode all
+        shell: bash
+
+      - name: Upload built jars as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mod-jars-${{ matrix.os }}
+          path: |
+            1.19.4/build/libs/*.jar
+            1.20.1/build/libs/*.jar
+            1.20.2/build/libs/*.jar
+            shared/build/libs/*.jar
